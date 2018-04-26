@@ -9,6 +9,10 @@ using iTextSharp.text.html.simpleparser;
 using iTextSharp.text.pdf;
 using System.IO;
 using System.Net.Http.Headers;
+using System.Data;
+using System.Web.UI;
+using System.Text;
+using System.Net.Mail;
 
 namespace JGOReports.Controllers
 {
@@ -17,49 +21,14 @@ namespace JGOReports.Controllers
         public JgoReportsController() { }
 
 
-        [Route("api/JgoReports/GetPDF")]
+
+
+        [Route("api/JgoReports/CreatePDF")]
         [HttpGet]
-        [ActionName("GetPDF")]
-        public byte[] GetPDF()
+        [ActionName("CreatePDF")]
+        public HttpResponseMessage CreatePDF(string report)
         {
-            string pHTML = "pdf <b>JGO Reports</b>";
-            byte[] bPDF = null;
-
-            MemoryStream ms = new MemoryStream();
-            TextReader txtReader = new StringReader(pHTML);
-
-            // 1: create object of a itextsharp document class
-            Document doc = new Document(PageSize.A4, 25, 25, 25, 25);
-
-            // 2: we create a itextsharp pdfwriter that listens to the document and directs a XML-stream to a file
-            PdfWriter oPdfWriter = PdfWriter.GetInstance(doc, ms);
-
-            // 3: we create a worker parse the document
-            HTMLWorker htmlWorker = new HTMLWorker(doc);
-
-            // 4: we open document and start the worker on the document
-            doc.Open();
-            htmlWorker.StartDocument();
-
-            // 5: parse the html into the document
-            htmlWorker.Parse(txtReader);
-
-            // 6: close the document and the worker
-            htmlWorker.EndDocument();
-            htmlWorker.Close();
-            doc.Close();
-
-            bPDF = ms.ToArray();
-
-            return bPDF;
-        }
-
-        [Route("api/JgoReports/ExampleOne")]
-        [HttpGet]
-        [ActionName("ExampleOne")]
-        public HttpResponseMessage ExampleOne()
-        {
-            var stream = CreatePdf();
+            var stream = CreatePdfString(report);
 
             return new HttpResponseMessage
             {
@@ -79,7 +48,7 @@ namespace JGOReports.Controllers
         }
 
 
-        private Stream CreatePdf()
+        private Stream CreatePdfString(string report)
         {
             using (var document = new Document(PageSize.A4, 50, 50, 25, 25))
             {
@@ -89,7 +58,7 @@ namespace JGOReports.Controllers
                 writer.CloseStream = false;
 
                 document.Open();
-                document.Add(new Paragraph("JGO Reports"));
+                document.Add(new Paragraph(report));
                 document.Close();
 
                 output.Seek(0, SeekOrigin.Begin);
@@ -97,5 +66,103 @@ namespace JGOReports.Controllers
                 return output;
             }
         }
+
+
+
+
+
+        [Route("api/JgoReports/generatePdfsend")]
+        [HttpGet]
+        [ActionName("generatePdfsend")]
+        public string generatePdfsend()
+        {
+            string retorno = "ok";
+            try
+            {
+
+                //Define os dados do e-mail
+                string nomeRemetente = "JGO REPORTS";
+                string emailRemetente = "jgo@g.com";
+                string senha = "abc1234";
+
+                //Host da porta SMTP
+                string SMTP = "smtp.jgo.com.br";
+
+                string emailDestinatario = "myemail@hotil.com";
+
+
+                string assuntoMensagem = "INVOIC";
+                string conteudoMensagem = "200";
+          
+
+                var doc = new Document();
+                MemoryStream memoryStream = new MemoryStream();
+                PdfWriter writer = PdfWriter.GetInstance(doc, memoryStream);
+
+                doc.Open();
+                doc.Add(new Paragraph("Report"));
+                doc.Add(new Paragraph(conteudoMensagem));
+
+                writer.CloseStream = false;
+                doc.Close();
+                memoryStream.Position = 0;
+
+                System.Net.Mail.MailMessage objEmail = new System.Net.Mail.MailMessage();
+
+               
+                objEmail.From = new System.Net.Mail.MailAddress(nomeRemetente + "<" + emailRemetente + ">");
+
+              
+                objEmail.To.Add(emailDestinatario);
+
+               
+                objEmail.Priority = System.Net.Mail.MailPriority.Normal;
+
+               
+                objEmail.IsBodyHtml = true;
+
+                objEmail.Subject = assuntoMensagem;
+
+                
+                objEmail.Body = conteudoMensagem;
+
+                objEmail.Attachments.Add(new Attachment(memoryStream, "invoice.pdf"));
+                
+                objEmail.SubjectEncoding = System.Text.Encoding.GetEncoding("ISO-8859-1");
+                objEmail.BodyEncoding = System.Text.Encoding.GetEncoding("ISO-8859-1");
+
+
+              
+                System.Net.Mail.SmtpClient objSmtp = new System.Net.Mail.SmtpClient();
+
+                
+                objSmtp.Credentials = new System.Net.NetworkCredential(emailRemetente, senha);
+                objSmtp.Host = SMTP;
+                objSmtp.Port = 587;
+
+                try
+                {
+                    objSmtp.Send(objEmail);
+                    retorno = "ok";
+                }
+                catch (Exception ex)
+                {
+                    retorno = " Issues to send e-mail. Error = " + ex.Message;
+                }
+                finally
+                {
+                    //excluímos o objeto de e-mail da memória
+                    objEmail.Dispose();
+                    //anexo.Dispose();
+                }
+            }
+            catch (Exception ex)
+            {
+                retorno = "here" + ex.Message;
+            }
+            return retorno;
+        }
+
+
     }
 }
